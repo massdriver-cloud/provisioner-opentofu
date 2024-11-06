@@ -9,6 +9,14 @@ config_path="$entrypoint_dir/config.json"
 envs_path="$entrypoint_dir/envs.json"
 secrets_path="$entrypoint_dir/secrets.json"
 
+# Extract OpenTofu config
+json_output=$(jq -r '.json // false' "$config_path")
+
+# Extract Checkov config
+checkov_enabled=$(jq -r '.checkov.enable // true' "$config_path")
+checkov_quiet=$(jq -r '.checkov.quiet // true' "$config_path")
+checkov_halt_on_failure=$(jq -r '.checkov.halt_on_failure // false' "$config_path")
+
 # Setup envs for Massdriver HTTP state backend 
 MASSDRIVER_SHORT_PACKAGE_NAME=$(echo $MASSDRIVER_PACKAGE_NAME | sed 's/-[a-z0-9]\{4\}$//')
 export TF_HTTP_USERNAME=${MASSDRIVER_DEPLOYMENT_ID}
@@ -30,6 +38,10 @@ cp "$connections_path" _connections.auto.tfvars.json
 cp "$params_path" _params.auto.tfvars.json
 
 tf_flags="-input=false"
+if [ "$json_output" = "true" ]; then
+    tf_flags+=" -json"
+fi
+
 case $MASSDRIVER_DEPLOYMENT_ACTION in
     plan )
         command=plan
@@ -39,7 +51,7 @@ case $MASSDRIVER_DEPLOYMENT_ACTION in
         ;;
     decommission )
         command=destroy
-        tf_flags="${tf_flags} -destroy"
+        tf_flags+=" -destroy"
         ;;
     *)
         echo "Unsupported action: $action"
@@ -56,9 +68,21 @@ tofu plan $tf_flags -out tf.plan
 if [ "$MASSDRIVER_DEPLOYMENT_ACTION" != "decommission" ]; then
     tofu show -json tf.plan > tfplan.json
 
-    # Run Checkov to check for policy violations
-    echo "evaluating Checkov policies"
-    checkov --framework terraform_plan -f tfplan.json --quiet --soft-fail --repo-root-for-plan-enrichment . --deep-analysis
+    # Run Checkov if enabled
+    if [ "$checkov_enabled" = "true" ]; then
+        echo "evaluating Checkov policies"
+        checkov_flags=""
+
+        if [ "$checkov_quiet" = "true" ]; then
+            checkov_flags+=" --quiet"
+        fi
+        if [ "$checkov_halt_on_failure" = "false" ]; then
+            checkov_flags+=" --soft-fail"
+        fi
+
+        checkov --framework terraform_plan -f tfplan.json $checkov_flags --download-external-modules false --repo-root-for-plan-enrichment . --deep-analysis
+        #checkov --framework terraform -d . $checkov_flags
+    fi
 
     # Check for invalid deletions
     if [ -f validations.json ]; then

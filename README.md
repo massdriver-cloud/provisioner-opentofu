@@ -12,7 +12,15 @@ The following tools are included in this provisioner:
 
 ## Configuration
 
-Currently, no configuration fields are supported for this provisioner.
+The following configuration options are available:
+
+| Configuration Option | Default | Description |
+|-|-|-|
+| `json` | `false` | Enables JSON output for OpenTofu. |
+| `checkov.enable` | `true` | Enables Checkov policy evaluation. If `false`, Checkov will not be run. |
+| `checkov.quiet` | `true` | Only display failed checks if `true` (adds the `--quiet` flag). |
+| `checkov.halt_on_failure` | `false` | Halt provisioning run and mark deployment as failed on a policy failure if true (removes the `--soft-fail` flag). |
+
 
 ## Inputs
 
