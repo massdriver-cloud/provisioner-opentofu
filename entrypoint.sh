@@ -9,13 +9,29 @@ config_path="$entrypoint_dir/config.json"
 envs_path="$entrypoint_dir/envs.json"
 secrets_path="$entrypoint_dir/secrets.json"
 
-# Extract OpenTofu config
+# Extract provisioner configuration
 json_output=$(jq -r '.json // false' "$config_path")
 
-# Extract Checkov config
+# Extract Checkov configuration
 checkov_enabled=$(jq -r '.checkov.enable // true' "$config_path")
 checkov_quiet=$(jq -r '.checkov.quiet // true' "$config_path")
 checkov_halt_on_failure=$(jq -r '.checkov.halt_on_failure // false' "$config_path")
+
+function evaluate_checkov() {
+    if [ "$checkov_enabled" = "true" ]; then
+        echo "evaluating Checkov policies"
+        checkov_flags=""
+
+        if [ "$checkov_quiet" = "true" ]; then
+            checkov_flags+=" --quiet"
+        fi
+        if [ "$checkov_halt_on_failure" = "false" ]; then
+            checkov_flags+=" --soft-fail"
+        fi
+
+        checkov --framework terraform_plan -f tfplan.json $checkov_flags --download-external-modules false --repo-root-for-plan-enrichment . --deep-analysis
+    fi
+}
 
 # Setup envs for Massdriver HTTP state backend 
 MASSDRIVER_SHORT_PACKAGE_NAME=$(echo $MASSDRIVER_PACKAGE_NAME | sed 's/-[a-z0-9]\{4\}$//')
@@ -69,20 +85,7 @@ if [ "$MASSDRIVER_DEPLOYMENT_ACTION" != "decommission" ]; then
     tofu show -json tf.plan > tfplan.json
 
     # Run Checkov if enabled
-    if [ "$checkov_enabled" = "true" ]; then
-        echo "evaluating Checkov policies"
-        checkov_flags=""
-
-        if [ "$checkov_quiet" = "true" ]; then
-            checkov_flags+=" --quiet"
-        fi
-        if [ "$checkov_halt_on_failure" = "false" ]; then
-            checkov_flags+=" --soft-fail"
-        fi
-
-        checkov --framework terraform_plan -f tfplan.json $checkov_flags --download-external-modules false --repo-root-for-plan-enrichment . --deep-analysis
-        #checkov --framework terraform -d . $checkov_flags
-    fi
+    evaluate_checkov
 
     # Check for invalid deletions
     if [ -f validations.json ]; then

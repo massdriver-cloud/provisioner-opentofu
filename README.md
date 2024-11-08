@@ -3,6 +3,12 @@
 
 [Massdriver](https://www.massdriver.cloud/) provisioner for managing resources with [OpenTofu](https://opentofu.org/).
 
+## Structure
+
+This provisioner expects the `path` to contain an OpenTofu module.
+
+If you wish to use a [dependency lock file](https://opentofu.org/docs/language/files/dependency-lock/) (`.terraform.lock.hcl`) with your module, be sure it is in the module directory when you publish with the [Massdriver CLI](https://github.com/massdriver-cloud/mass). For this reason, it's best to check this dependency lock file into source control.
+
 ## Tooling
 
 The following tools are included in this provisioner:
@@ -14,12 +20,12 @@ The following tools are included in this provisioner:
 
 The following configuration options are available:
 
-| Configuration Option | Default | Description |
-|-|-|-|
-| `json` | `false` | Enables JSON output for OpenTofu. |
-| `checkov.enable` | `true` | Enables Checkov policy evaluation. If `false`, Checkov will not be run. |
-| `checkov.quiet` | `true` | Only display failed checks if `true` (adds the `--quiet` flag). |
-| `checkov.halt_on_failure` | `false` | Halt provisioning run and mark deployment as failed on a policy failure if true (removes the `--soft-fail` flag). |
+| Configuration Option | Type | Default | Description |
+|-|-|-|-|
+| `json` | boolean | `false` | Enables JSON output for OpenTofu. |
+| `checkov.enable` | boolean | `true` | Enables Checkov policy evaluation. If `false`, Checkov will not be run. |
+| `checkov.quiet` | boolean | `true` | Only display failed checks if `true` (adds the `--quiet` flag). |
+| `checkov.halt_on_failure` | boolean | `false` | Halt provisioning run and mark deployment as failed on a policy failure (removes the `--soft-fail` flag). |
 
 
 ## Inputs
@@ -30,33 +36,7 @@ In order to view the structure of the params and connections fields you can run 
 
 ## Artifacts
 
-Artifacts can be created two ways using this provisioner: with the Massdriver OpenTofu provider, and using outputs.
-
-### Massdriver OpenTofu Provider
-
-Refer to the [provider documentation](https://registry.terraform.io/providers/massdriver-cloud/massdriver/latest/docs/resources/massdriver_artifact) for the `massdriver_artifact` resource. An example is below:
-
-```hcl
-resource "massdriver_artifact" "bucket" {
-  field                = "bucket"
-  provider_resource_id = aws_s3_bucket.main.arn
-  name                 = "AWS S3 Bucket: ${aws_s3_bucket.main.arn}"
-  artifact = jsonencode(
-    {
-      data = {
-        infrastructure = {
-          arn = aws_s3_bucket.main.arn
-        }
-      }
-      specs = {
-        aws = {
-          region = var.bucket.region
-        }
-      }
-    }
-  )
-}
-```
+Artifacts can be created two ways using this provisioner: using OpenTofu `outputs`, and using the [Massdriver](https://registry.terraform.io/providers/massdriver-cloud/massdriver/latest) OpenTofu provider.
 
 ### OpenTofu Outputs
 
@@ -171,7 +151,7 @@ Thus, the `artifact_bucket.jq` file would simply be:
 
 #### Build Artifact in JQ Template
 
-Alternatively, you can build the artifact using the JQ template. This approach is best if you are attempting to minimize changes to your OpenTofu module. With this approach, All you would need to output is the bucket ARN.
+Alternatively, you can build the artifact using the JQ template. This approach is best if you are attempting to minimize changes to your OpenTofu module. With this approach, all you would need to output is the bucket ARN.
 
 ```hcl
 output "bucket_arn" {
@@ -214,5 +194,33 @@ Now the artifact structure must be built through the `artifact_bucket.jq` templa
             "region": .params.region
         }
     }
+}
+```
+
+### Massdriver OpenTofu Provider
+
+This is the legacy approach to creating artifacts since it is unique to Terraform and OpenTofu provisioners. It may be deprecated and removed in the future.
+
+Refer to the [provider documentation](https://registry.terraform.io/providers/massdriver-cloud/massdriver/latest/docs/resources/massdriver_artifact) for the `massdriver_artifact` resource. An example is below:
+
+```hcl
+resource "massdriver_artifact" "bucket" {
+  field                = "bucket"
+  provider_resource_id = aws_s3_bucket.main.arn
+  name                 = "AWS S3 Bucket: ${aws_s3_bucket.main.arn}"
+  artifact = jsonencode(
+    {
+      data = {
+        infrastructure = {
+          arn = aws_s3_bucket.main.arn
+        }
+      }
+      specs = {
+        aws = {
+          region = var.bucket.region
+        }
+      }
+    }
+  )
 }
 ```
