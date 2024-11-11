@@ -145,7 +145,7 @@ In this case, the input to the `artifact_bucket.jq` template file would be:
 
 Thus, the `artifact_bucket.jq` file would simply be:
 
-```json
+```jq artifact_bucket.jq
 .outputs.artifact_bucket
 ```
 
@@ -182,7 +182,7 @@ In this case, the input to the `artifact_bucket.jq` template file would be:
 
 Now the artifact structure must be built through the `artifact_bucket.jq` template:
 
-```json
+```jq artifact_bucket.jq
 {
     "data": {
         "infrastructure": {
