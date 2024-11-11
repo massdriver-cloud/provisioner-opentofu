@@ -82,7 +82,7 @@ artifacts:
       $ref: massdriver/aws-s3-bucket
 ```
 
-In this example a file named `artifact_bucket.jq` would need to be in the module directory and the provisioner would use this file as a JQ template, passing the params, connections and outputs to it. There are two approaches to building the proper artifact structure:
+Since the artifact is named `bucket` a file named `artifact_bucket.jq` would need to be in the module directory and the provisioner would use this file as a JQ template, passing the params, connections and outputs to it. There are two approaches to building the proper artifact structure:
 1. Fully render the artifact in the OpenTofu output
 2. Build the artifact using the jq template
 
