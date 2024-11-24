@@ -40,7 +40,7 @@ Artifacts can be created two ways using this provisioner: using OpenTofu `output
 
 ### OpenTofu Outputs
 
-After every provision, this provider will scan the module directory for files matching the pattern `artifact_<name>.jq`. If a file matching this pattern is present, it will be used as a JQ template to render and publish a Massdriver artifact. The inputs to the JQ template will be a JSON object with the params, connections and module outputs as top level fields.
+After every provision, this provider will scan the module directory for files matching the pattern `artifact_<name>.jq`. If a file matching this pattern is present, it will be used as a JQ template to render and publish a Massdriver artifact. The inputs to the JQ template will be a JSON object with the params, connections, envs, secrets and module outputs as top level fields.
 
 ```json
 {
@@ -48,6 +48,12 @@ After every provision, this provider will scan the module directory for files ma
         ...
     },
     "connections": {
+        ...
+    },
+    "envs": {
+        ...
+    },
+    "secrets": {
         ...
     },
     "outputs": {
@@ -126,6 +132,8 @@ In this case, the input to the `artifact_bucket.jq` template file would be:
             }
         }
     },
+    "envs": {},
+    "secrets": {},
     "outputs": {
         "artifact_bucket": {
             "data": {
