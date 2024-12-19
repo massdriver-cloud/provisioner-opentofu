@@ -154,7 +154,7 @@ In this case, the input to the `artifact_bucket.jq` template file would be:
 Thus, the `artifact_bucket.jq` file would simply be:
 
 ```jq artifact_bucket.jq
-.outputs.artifact_bucket
+.outputs.artifact_bucket.value
 ```
 
 #### Build Artifact in JQ Template
