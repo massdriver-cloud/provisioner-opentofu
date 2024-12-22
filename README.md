@@ -100,20 +100,18 @@ If you choose to fully render the artifact in OpenTofu, it would be similar to:
 
 ```hcl
 output "artifact_bucket" {
-  value = jsonencode(
-    {
-      data = {
-        infrastructure = {
-          arn = aws_s3_bucket.main.arn
-        }
-      }
-      specs = {
-        aws = {
-          region = var.region
-        }
+  value = {
+    data = {
+      infrastructure = {
+        arn = aws_s3_bucket.main.arn
       }
     }
-  )
+    specs = {
+      aws = {
+        region = var.region
+      }
+    }
+  }
 }
 ```
 
@@ -154,7 +152,7 @@ In this case, the input to the `artifact_bucket.jq` template file would be:
 Thus, the `artifact_bucket.jq` file would simply be:
 
 ```jq artifact_bucket.jq
-.outputs.artifact_bucket
+.outputs.artifact_bucket.value
 ```
 
 #### Build Artifact in JQ Template
