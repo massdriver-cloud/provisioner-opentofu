@@ -44,5 +44,5 @@ jobs:
         with:
           context: .
           push: true
-          tags: massdrivercloud/${{ env.REPO_NAME }}:${{ env.MAJOR_MINOR_VERSION }}${{ env.MAJOR_MINOR_VERSION == env.LATEST_MAJOR_MINOR_VERSION && ',massdrivercloud/${{ env.REPO_NAME }}:latest' || '' }}
+          tags: massdrivercloud/provisioner-opentofu:${{ env.MAJOR_MINOR_VERSION }}${{ env.MAJOR_MINOR_VERSION == env.LATEST_MAJOR_MINOR_VERSION && ',massdrivercloud/provisioner-opentofu:latest' || '' }}
           build-args: OPENTOFU_VERSION=${{ matrix.opentofu_version }}
