@@ -1,4 +1,3 @@
-# This Dockerfile is intended to be built from the top of the repo (not this directory)
 ARG OPENTOFU_VERSION=1.8.4
 ARG CHECKOV_VERSION=3.2.268
 ARG OPA_VERSION=0.69.0
