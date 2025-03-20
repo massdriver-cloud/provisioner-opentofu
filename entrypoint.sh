@@ -1,6 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
+# Define colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+NC='\033[0m' # No Color (reset)
+
 entrypoint_dir="/massdriver"
 
 params_path="$entrypoint_dir/params.json"
@@ -71,7 +76,7 @@ case $MASSDRIVER_DEPLOYMENT_ACTION in
         tf_flags+=" -destroy"
         ;;
     *)
-        echo "Unsupported action: $action"
+        echo -e "${RED}Error: Unsupported deployment action '$MASSDRIVER_DEPLOYMENT_ACTION'. Expected 'plan', 'provision', or 'decommission'.${NC}"
         exit 1
         ;;
 esac
