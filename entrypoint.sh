@@ -30,7 +30,7 @@ jq_bool_default() {
 # Utility function for evaluating Checkov policies
 evaluate_checkov() {
     if [ "$checkov_enabled" = "true" ]; then
-        echo "evaluating Checkov policies"
+        echo "Evaluating Checkov policies..."
         checkov_flags=""
 
         if [ "$checkov_quiet" = "true" ]; then
