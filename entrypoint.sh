@@ -8,6 +8,12 @@ NC='\033[0m' # No Color (reset)
 
 entrypoint_dir="/massdriver"
 
+params_path="$entrypoint_dir/params.json"
+connections_path="$entrypoint_dir/connections.json"
+config_path="$entrypoint_dir/config.json"
+envs_path="$entrypoint_dir/envs.json"
+secrets_path="$entrypoint_dir/secrets.json"
+
 # Utility function for extracting JSON booleans with default values (since jq "//" doesn't work for properly for booleans)
 jq_bool_default() {
   local query="${1:-}"
@@ -22,7 +28,7 @@ jq_bool_default() {
   jq -r "if $query == null then $default else $query end" "$data"
 }
 # Utility function for evaluating Checkov policies
-function evaluate_checkov() {
+evaluate_checkov() {
     if [ "$checkov_enabled" = "true" ]; then
         echo "evaluating Checkov policies"
         checkov_flags=""
