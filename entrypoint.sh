@@ -124,7 +124,7 @@ tofu apply $tf_flags tf.plan
 # Handle artifacts if deployment action is 'provision' or 'decommission'
 case "$MASSDRIVER_DEPLOYMENT_ACTION" in
     provision )
-        tofu show -json  | jq '.values.outputs // {}' > outputs.json
+        tofu show -json  | jq '.values.outputs // {} | with_entries(.value = .value.value)' > outputs.json
         jq -s '{params:.[0],connections:.[1],envs:.[2],secrets:.[3],outputs:.[4]}' "$params_path" "$connections_path" "$envs_path" "$secrets_path" outputs.json > artifact_inputs.json
         for artifact_file in artifact_*.jq; do
             [ -f "$artifact_file" ] || break
