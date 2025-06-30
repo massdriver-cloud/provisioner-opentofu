@@ -75,7 +75,7 @@ evaluate_opa_policies() {
         
         # Extract the package name from the rego file to build the query
         local package_name=$(grep -E "^package " "$rego_file" | head -1 | sed 's/package //')
-        local query="data.${package_name}.policies[_]"
+        local query="data.${package_name}.violations[_]"
         
         # Run OPA eval against the policy file using the standard policies interface
         opa_output=$(opa eval --fail-defined --data "$rego_file" --input tfplan.json --data validations.json "$query" 2>&1)
