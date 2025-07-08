@@ -47,65 +47,6 @@ evaluate_checkov() {
     fi
 }
 
-# Utility function for evaluating OPA policies
-evaluate_opa_policies() {
-    local policy_dir="/opa"
-    local has_violations=false
-    
-    if [ ! -d "$policy_dir" ]; then
-        echo "No OPA policy directory found, skipping policy evaluation"
-        return 0
-    fi
-
-    echo -e "\nEvaluating OPA policies..."
-    
-    # Find all .rego files in the opa directory
-    local rego_files=($(find "$policy_dir" -name "*.rego" -type f))
-    
-    if [ ${#rego_files[@]} -eq 0 ]; then
-        echo "No .rego policy files found in $policy_dir"
-        return 0
-    fi
-    
-    echo "Found ${#rego_files[@]} OPA policy file(s), evaluating..."
-    
-    for rego_file in "${rego_files[@]}"; do
-        local rego_filename=$(basename "$rego_file")
-        echo "  Evaluating policies in $rego_filename..."
-        
-        # Extract the package name from the rego file to build the query
-        local package_name=$(grep -E "^package " "$rego_file" | head -1 | sed 's/package //')
-        local query="data.${package_name}.violations[_]"
-        
-        # Run OPA eval against the policy file using the standard policies interface
-        opa_output=$(opa eval --fail-defined --data "$rego_file" --input tfplan.json --data validations.json "$query" 2>&1)
-        opa_exit_code=$?
-        
-        if [ $opa_exit_code -ne 0 ]; then
-            echo -e "    ${RED}❌ Policy violations found in $rego_filename${NC}"
-            
-            # Try to parse and format policy violations nicely
-            if echo "$opa_output" | jq -e '.result[]' >/dev/null 2>&1; then
-                echo "$opa_output" | jq -r '.result[].expressions[].value | "      - \(.message // "unknown (no '\''message'\'' field found in result object)")"'
-            else
-                # Fallback to raw output with indentation
-                echo "$opa_output" | sed 's/^/      /'
-            fi
-            has_violations=true
-        else
-            echo -e "    ${GREEN}✅ $rego_filename passed${NC}"
-        fi
-    done
-    
-    if [ "$has_violations" = true ]; then
-        echo -e "${RED}One or more OPA policies failed${NC}"
-        return 1
-    else
-        echo -e "${GREEN}All OPA policies passed${NC}\n"
-        return 0
-    fi
-}
-
 # Extract provisioner configuration
 json_output=$(jq -r '.json // false' "$config_path")
 name_prefix=$(jq -r '.md_metadata.name_prefix' "$params_path")
@@ -168,13 +109,6 @@ if [ "$MASSDRIVER_DEPLOYMENT_ACTION" != "decommission" ]; then
 
     # Run Checkov if enabled
     evaluate_checkov
-
-    # Run OPA policy checks
-    if [ -f validations.json ]; then
-        if ! evaluate_opa_policies; then
-            exit 1
-        fi
-    fi
 fi
 
 if [ "$MASSDRIVER_DEPLOYMENT_ACTION" = "plan" ]; then

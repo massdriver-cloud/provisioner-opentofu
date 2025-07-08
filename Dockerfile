@@ -1,6 +1,5 @@
 ARG OPENTOFU_VERSION=1.10.1
 ARG CHECKOV_VERSION=3.2.447
-ARG OPA_VERSION=1.6.0
 ARG RUN_IMG=ubuntu:24.04
 ARG USER=massdriver
 ARG UID=10001
@@ -16,7 +15,6 @@ RUN apt update && apt install -y curl unzip make jq && \
     rm -rf /var/lib/apt/lists/* && \
     curl -s https://api.github.com/repos/massdriver-cloud/xo/releases/latest | jq -r '.assets[] | select(.name | contains("linux-amd64")) | .browser_download_url' | xargs curl -sSL -o xo.tar.gz && tar -xvf xo.tar.gz -C /tmp && mv /tmp/xo /usr/local/bin/ && rm *.tar.gz && \
     curl -sSL https://github.com/opentofu/opentofu/releases/download/v${OPENTOFU_VERSION}/tofu_${OPENTOFU_VERSION}_linux_amd64.zip > opentofu.zip && unzip opentofu.zip && mv tofu /usr/local/bin/ && rm *.zip && \
-    curl -sSL https://openpolicyagent.org/downloads/v${OPA_VERSION}/opa_linux_amd64_static > /usr/local/bin/opa && chmod a+x /usr/local/bin/opa && \
     curl -sSL https://github.com/bridgecrewio/checkov/releases/download/${CHECKOV_VERSION}/checkov_linux_X86_64.zip > checkov.zip && unzip checkov.zip && mv dist/checkov /usr/local/bin/ && rm *.zip
 
 FROM ${RUN_IMG}
@@ -37,7 +35,6 @@ RUN chown -R $USER:$USER /massdriver
 USER $USER
 
 COPY --from=build /usr/local/bin/* /usr/local/bin/
-COPY ./opa /opa
 COPY entrypoint.sh /usr/local/bin/
 
 ENV MASSDRIVER_PROVISIONER=opentofu
