@@ -12,7 +12,7 @@ jobs:
 
     strategy:
       matrix:
-        opentofu_version: [1.6.3, 1.7.8, 1.8.9, 1.9.1, 1.10.1]  # Full semver versions
+        opentofu_version: [1.6.3, 1.7.10, 1.8.11, 1.9.4, 1.10.7]  # Full semver versions
 
     steps:
       - name: Checkout repository
