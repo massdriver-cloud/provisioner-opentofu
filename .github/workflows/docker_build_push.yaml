@@ -32,7 +32,7 @@ jobs:
           sorted_versions=($(printf '%s\n' "${versions[@]}" | sort -V))
           
           # Get the last element (highest version)
-          latest_full_version="${sorted_versions[${#sorted_versions[@]}-1]}"
+          latest_full_version="${sorted_versions[$((${#sorted_versions[@]}-1))]}"
           latest_major_minor=$(echo "$latest_full_version" | awk -F. '{print $1"."$2}')
 
           echo "LATEST_MAJOR_MINOR_VERSION=$latest_major_minor" >> $GITHUB_ENV
