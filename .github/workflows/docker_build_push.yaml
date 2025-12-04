@@ -12,30 +12,25 @@ jobs:
 
     strategy:
       matrix:
-        opentofu_version: [1.6.3, 1.7.10, 1.8.11, 1.9.4, 1.10.7]  # Full semver versions
+        include: # Full semver versions
+          - opentofu_version: 1.6.3
+          - opentofu_version: 1.7.10
+          - opentofu_version: 1.8.11
+          - opentofu_version: 1.9.4
+          - opentofu_version: 1.10.7
+            is_latest: true
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Extract major.minor version and determine latest
+      - name: Extract major.minor version
         id: version_processing
         run: |
           # Extract major.minor version (e.g., 1.2.3 -> 1.2)
           VERSION="${{ matrix.opentofu_version }}"
           MAJOR_MINOR=$(echo "$VERSION" | awk -F. '{print $1"."$2}')
           echo "MAJOR_MINOR_VERSION=$MAJOR_MINOR" >> $GITHUB_ENV
-
-          # Prepare a sorted list to determine the latest version
-          # Read all versions into array and sort them
-          IFS=' ' read -ra versions <<< "${{ join(matrix.opentofu_version, ' ') }}"
-          sorted_versions=($(printf '%s\n' "${versions[@]}" | sort -V))
-          
-          # Get the last element (highest version)
-          latest_full_version="${sorted_versions[$((${#sorted_versions[@]}-1))]}"
-          latest_major_minor=$(echo "$latest_full_version" | awk -F. '{print $1"."$2}')
-
-          echo "LATEST_MAJOR_MINOR_VERSION=$latest_major_minor" >> $GITHUB_ENV
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
@@ -48,5 +43,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: massdrivercloud/provisioner-opentofu:${{ env.MAJOR_MINOR_VERSION }}${{ env.MAJOR_MINOR_VERSION == env.LATEST_MAJOR_MINOR_VERSION && ',massdrivercloud/provisioner-opentofu:latest' || '' }}
           build-args: OPENTOFU_VERSION=${{ matrix.opentofu_version }}
+          tags: |
+            massdrivercloud/provisioner-opentofu:${{ env.MAJOR_MINOR_VERSION }}
+            ${{ matrix.is_latest && 'massdrivercloud/provisioner-opentofu:latest' || '' }}
