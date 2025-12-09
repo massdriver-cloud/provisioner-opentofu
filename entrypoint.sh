@@ -118,24 +118,14 @@ fi
 echo "Applying Terraform plan..."
 tofu apply $tf_flags tf.plan
 
-# Handle artifacts if deployment action is 'provision' or 'decommission'
-case "$MASSDRIVER_DEPLOYMENT_ACTION" in
-    provision )
-        tofu show -json  | jq '.values.outputs // {} | with_entries(.value = .value.value)' > outputs.json
-        jq -s '{params:.[0],connections:.[1],envs:.[2],secrets:.[3],outputs:.[4]}' "$params_path" "$connections_path" "$envs_path" "$secrets_path" outputs.json > artifact_inputs.json
-        for artifact_file in artifact_*.jq; do
-            [ -f "$artifact_file" ] || break
-            field=$(echo "$artifact_file" | sed 's/^artifact_\(.*\).jq$/\1/')
-            echo "Creating artifact for field $field"
-            jq -f "$artifact_file" artifact_inputs.json | xo artifact publish -d "$field" -n "Artifact $field for $name_prefix" -f -
-        done
-        ;;
-    decommission )
-        for artifact_file in artifact_*.jq; do
-            [ -f "$artifact_file" ] || break
-            field=$(echo "$artifact_file" | sed 's/^artifact_\(.*\).jq$/\1/')
-            echo "Deleting artifact for field $field"
-            xo artifact delete -d "$field"
-        done
-        ;;
-esac
+# Create artifacts if deployment action is 'provision'
+if [ "$MASSDRIVER_DEPLOYMENT_ACTION" = "provision" ]; then
+    tofu show -json  | jq '.values.outputs // {} | with_entries(.value = .value.value)' > outputs.json
+    jq -s '{params:.[0],connections:.[1],envs:.[2],secrets:.[3],outputs:.[4]}' "$params_path" "$connections_path" "$envs_path" "$secrets_path" outputs.json > artifact_inputs.json
+    for artifact_file in artifact_*.jq; do
+        [ -f "$artifact_file" ] || break
+        field=$(echo "$artifact_file" | sed 's/^artifact_\(.*\).jq$/\1/')
+        echo "Creating artifact for field $field"
+        jq -f "$artifact_file" artifact_inputs.json | xo artifact publish -d "$field" -n "Artifact $field for $name_prefix" -f -
+    done
+fi
