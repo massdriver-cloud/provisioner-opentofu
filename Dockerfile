@@ -21,7 +21,7 @@ FROM ${RUN_IMG}
 ARG USER
 ARG UID
 
-RUN apt update && apt install -y ca-certificates jq git && \
+RUN apt update && apt install -y ca-certificates jq git openssh-client && \
     rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p -m 777 /massdriver
