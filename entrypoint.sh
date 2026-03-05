@@ -28,29 +28,32 @@ jq_bool_default() {
   jq -r "if $query == null then $default else $query end" "$data"
 }
 
-# Utility function for configuring SSH for private module repositories
+# Utility function for configuring SSH for private module access
 setup_ssh() {
     local private_key
     private_key=$(jq -r '.ssh.private_key // empty' "$config_path")
 
     if [ -z "$private_key" ]; then
-        return 0
+        return
     fi
 
-    echo "Setting up SSH for private module repositories..."
+    echo "Configuring SSH for private module access..."
     mkdir -p ~/.ssh
     chmod 700 ~/.ssh
-    printf '%s\n' "$private_key" > ~/.ssh/id_rsa
+    echo "$private_key" > ~/.ssh/id_rsa
     chmod 600 ~/.ssh/id_rsa
 
     # Accept new host keys on first connect, but reject changed keys
-    printf 'Host *\n    StrictHostKeyChecking accept-new\n' > ~/.ssh/config
+    cat > ~/.ssh/config <<EOF
+Host *
+    StrictHostKeyChecking accept-new
+EOF
     chmod 600 ~/.ssh/config
 
     # Rewrite any https:// git URL to ssh://git@, so module sources using https are fetched via SSH
     git config --global url."ssh://git@".insteadOf "https://"
 
-    echo -e "${GREEN}SSH configured.${NC}"
+    echo -e "${GREEN}SSH configured successfully.${NC}"
 }
 
 # Utility function for evaluating Checkov policies
@@ -65,7 +68,7 @@ evaluate_checkov() {
         if [ "$checkov_halt_on_failure" = "false" ]; then
             checkov_flags+=" --soft-fail"
         fi
-        
+
         # Setting log level error to avoid Checkov's unavoidable WARNING about not downloading external modules
         LOG_LEVEL=error checkov --repo-root-for-plan-enrichment . --deep-analysis $checkov_flags --framework terraform_plan -f tfplan.json
         echo -e "${GREEN}Checkov evaluation completed.${NC}"
