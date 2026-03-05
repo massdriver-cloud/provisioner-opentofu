@@ -28,6 +28,31 @@ jq_bool_default() {
   jq -r "if $query == null then $default else $query end" "$data"
 }
 
+# Utility function for configuring SSH for private module repositories
+setup_ssh() {
+    local private_key
+    private_key=$(jq -r '.ssh.private_key // empty' "$config_path")
+
+    if [ -z "$private_key" ]; then
+        return 0
+    fi
+
+    echo "Setting up SSH for private module repositories..."
+    mkdir -p ~/.ssh
+    chmod 700 ~/.ssh
+    printf '%s\n' "$private_key" > ~/.ssh/id_rsa
+    chmod 600 ~/.ssh/id_rsa
+
+    # Accept new host keys on first connect, but reject changed keys
+    printf 'Host *\n    StrictHostKeyChecking accept-new\n' > ~/.ssh/config
+    chmod 600 ~/.ssh/config
+
+    # Rewrite any https:// git URL to ssh://git@, so module sources using https are fetched via SSH
+    git config --global url."ssh://git@".insteadOf "https://"
+
+    echo -e "${GREEN}SSH configured.${NC}"
+}
+
 # Utility function for evaluating Checkov policies
 evaluate_checkov() {
     if [ "$checkov_enabled" = "true" ]; then
@@ -55,6 +80,12 @@ name_prefix=$(jq -r '.md_metadata.name_prefix' "$params_path")
 checkov_enabled=$(jq_bool_default '.checkov.enable' true "$config_path")
 checkov_quiet=$(jq_bool_default '.checkov.quiet' true "$config_path")
 checkov_halt_on_failure=$(jq_bool_default '.checkov.halt_on_failure' false "$config_path")
+
+# Configure TF_LOG for verbose OpenTofu logging (valid values: TRACE, DEBUG, INFO, WARN, ERROR, JSON, OFF)
+tf_log=$(jq -r '.log_level // empty' "$config_path")
+if [ -n "$tf_log" ]; then
+    export TF_LOG="$tf_log"
+fi
 
 # Setup envs for Massdriver HTTP state backend 
 MASSDRIVER_SHORT_PACKAGE_NAME=$(echo $MASSDRIVER_PACKAGE_NAME | sed 's/-[a-z0-9]\{4\}$//')
@@ -99,6 +130,8 @@ case $MASSDRIVER_DEPLOYMENT_ACTION in
 esac
 
 xo provisioner terraform backend http -s "$MASSDRIVER_STEP_PATH" -o backend.tf.json
+
+setup_ssh
 
 tofu init -input=false
 tofu plan $tf_flags -out tf.plan
