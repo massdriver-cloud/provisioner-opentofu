@@ -19,8 +19,9 @@ jobs:
           - opentofu_version: 1.7.10
           - opentofu_version: 1.8.11
           - opentofu_version: 1.9.4
-          - opentofu_version: 1.10.8
-          - opentofu_version: 1.11.5
+          - opentofu_version: 1.10.10
+          - opentofu_version: 1.11.8
+          - opentofu_version: 1.12.1
             is_latest: true
 
     steps:
