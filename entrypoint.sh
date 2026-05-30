@@ -1,8 +1,12 @@
 #!/bin/bash
 set -euo pipefail
+# Unmatched globs expand to nothing instead of the literal pattern, so the
+# artifact_*.jq / resource_*.jq loops below simply skip when no files match.
+shopt -s nullglob
 
 # Define colors
 RED='\033[0;31m'
+YELLOW='\033[0;33m'
 GREEN='\033[0;32m'
 NC='\033[0m' # No Color (reset)
 
@@ -60,17 +64,17 @@ EOF
 evaluate_checkov() {
     if [ "$checkov_enabled" = "true" ]; then
         echo -e "\nEvaluating Checkov policies..."
-        checkov_flags=""
+        checkov_flags=()
 
         if [ "$checkov_quiet" = "true" ]; then
-            checkov_flags+=" --quiet"
+            checkov_flags+=(--quiet)
         fi
         if [ "$checkov_halt_on_failure" = "false" ]; then
-            checkov_flags+=" --soft-fail"
+            checkov_flags+=(--soft-fail)
         fi
 
         # Setting log level error to avoid Checkov's unavoidable WARNING about not downloading external modules
-        LOG_LEVEL=error checkov --repo-root-for-plan-enrichment . --deep-analysis $checkov_flags --framework terraform_plan -f tfplan.json
+        LOG_LEVEL=error checkov --repo-root-for-plan-enrichment . --deep-analysis "${checkov_flags[@]}" --framework terraform_plan -f tfplan.json
         echo -e "${GREEN}Checkov evaluation completed.${NC}"
     fi
 }
@@ -90,11 +94,13 @@ if [ -n "$tf_log" ]; then
     export TF_LOG="$tf_log"
 fi
 
-# Setup envs for Massdriver HTTP state backend 
-MASSDRIVER_SHORT_PACKAGE_NAME=$(echo $MASSDRIVER_PACKAGE_NAME | sed 's/-[a-z0-9]\{4\}$//')
+# Setup envs for Massdriver HTTP state backend
+if [ -z "${MASSDRIVER_INSTANCE_ID:-}" ]; then
+    export MASSDRIVER_INSTANCE_ID=$(echo "$MASSDRIVER_PACKAGE_NAME" | sed 's/-[a-z0-9]\{4\}$//')
+fi
 export TF_HTTP_USERNAME=${MASSDRIVER_DEPLOYMENT_ID}
 export TF_HTTP_PASSWORD=${MASSDRIVER_TOKEN}
-export TF_HTTP_ADDRESS="https://api.massdriver.cloud/state/${MASSDRIVER_SHORT_PACKAGE_NAME}/${MASSDRIVER_STEP_PATH}"
+export TF_HTTP_ADDRESS="https://api.massdriver.cloud/state/${MASSDRIVER_INSTANCE_ID}/${MASSDRIVER_STEP_PATH}"
 export TF_HTTP_LOCK_ADDRESS=${TF_HTTP_ADDRESS}
 export TF_HTTP_UNLOCK_ADDRESS=${TF_HTTP_ADDRESS}
 
@@ -104,15 +110,20 @@ if [ -f "$secrets_path" ]; then
     cp "$secrets_path" "$entrypoint_dir/bundle/secrets.json"
 fi
 
-cd bundle/$MASSDRIVER_STEP_PATH
+# TODO: this can eventually be removed after MASSDRIVER_PACKAGE_NAME is fully deprecated
+if [ -z "${MASSDRIVER_INSTANCE_ID:-}" ]; then
+    export MASSDRIVER_INSTANCE_ID=$(echo "$MASSDRIVER_PACKAGE_NAME" | sed 's/-[a-z0-9]\{4\}$//')
+fi
+
+cd "bundle/$MASSDRIVER_STEP_PATH"
 
 # Copy the params/connections files to the step directory
 cp "$connections_path" _connections.auto.tfvars.json
 cp "$params_path" _params.auto.tfvars.json
 
-tf_flags="-input=false"
+tf_flags=(-input=false)
 if [ "$json_output" = "true" ]; then
-    tf_flags+=" -json"
+    tf_flags+=(-json)
 fi
 
 case $MASSDRIVER_DEPLOYMENT_ACTION in
@@ -124,7 +135,7 @@ case $MASSDRIVER_DEPLOYMENT_ACTION in
         ;;
     decommission )
         command=destroy
-        tf_flags+=" -destroy"
+        tf_flags+=(-destroy)
         ;;
     *)
         echo -e "${RED}Error: Unsupported deployment action '$MASSDRIVER_DEPLOYMENT_ACTION'. Expected 'plan', 'provision', or 'decommission'.${NC}"
@@ -137,7 +148,7 @@ xo provisioner terraform backend http -s "$MASSDRIVER_STEP_PATH" -o backend.tf.j
 setup_ssh
 
 tofu init -input=false
-tofu plan $tf_flags -out tf.plan
+tofu plan "${tf_flags[@]}" -out tf.plan
 
 # Run validations if the command is not 'destroy'
 if [ "$MASSDRIVER_DEPLOYMENT_ACTION" != "decommission" ]; then
@@ -152,26 +163,26 @@ if [ "$MASSDRIVER_DEPLOYMENT_ACTION" = "plan" ]; then
 fi
 
 echo "Applying Terraform plan..."
-tofu apply $tf_flags tf.plan
+tofu apply "${tf_flags[@]}" tf.plan
 
-# Handle artifacts if deployment action is 'provision' or 'decommission'
+# Publish or delete resources based on deployment action
 case "$MASSDRIVER_DEPLOYMENT_ACTION" in
     provision )
         tofu show -json -show-sensitive  | jq '.values.outputs // {} | with_entries(.value = .value.value)' > outputs.json
-        jq -s '{params:.[0],connections:.[1],envs:.[2],secrets:.[3],outputs:.[4]}' "$params_path" "$connections_path" "$envs_path" "$secrets_path" outputs.json > artifact_inputs.json
-        for artifact_file in artifact_*.jq; do
-            [ -f "$artifact_file" ] || break
-            field=$(echo "$artifact_file" | sed 's/^artifact_\(.*\).jq$/\1/')
-            echo "Creating artifact for field $field"
-            jq -f "$artifact_file" artifact_inputs.json | xo artifact publish -d "$field" -n "Artifact $field for $name_prefix" -f -
+        jq -s '{params:.[0],connections:.[1],envs:.[2],secrets:.[3],outputs:.[4]}' "$params_path" "$connections_path" "$envs_path" "$secrets_path" outputs.json > resource_inputs.json
+        for resource_file in artifact_*.jq resource_*.jq; do
+            [ -f "$resource_file" ] || continue
+            field=$(echo "$resource_file" | sed -E 's/^(artifact|resource)_(.*)\.jq$/\2/')
+            echo -e "\nCreating resource \"$MASSDRIVER_INSTANCE_ID-$field\" in Massdriver..."
+            jq -f "$resource_file" resource_inputs.json | xo resource publish -d "$field" -n "Resource $field for $name_prefix" -f -
         done
         ;;
     decommission )
-        for artifact_file in artifact_*.jq; do
-            [ -f "$artifact_file" ] || break
-            field=$(echo "$artifact_file" | sed 's/^artifact_\(.*\).jq$/\1/')
-            echo "Deleting artifact for field $field"
-            xo artifact delete -d "$field"
+        for resource_file in artifact_*.jq resource_*.jq; do
+            [ -f "$resource_file" ] || continue
+            field=$(echo "$resource_file" | sed -E 's/^(artifact|resource)_(.*)\.jq$/\2/')
+            echo -e "\nDeleting resource \"$MASSDRIVER_INSTANCE_ID-$field\" from Massdriver..."
+            xo resource delete -d "$field" || echo -e "${YELLOW}Warning: failed to delete resource for field $field. Continuing decommission.${NC}"
         done
         ;;
 esac
