@@ -94,13 +94,13 @@ if [ -n "$tf_log" ]; then
     export TF_LOG="$tf_log"
 fi
 
-# Setup envs for Massdriver HTTP state backend
+# Setup envs for Massdriver HTTP state backend.
 if [ -z "${MASSDRIVER_INSTANCE_ID:-}" ]; then
     export MASSDRIVER_INSTANCE_ID=$(echo "$MASSDRIVER_PACKAGE_NAME" | sed 's/-[a-z0-9]\{4\}$//')
 fi
 export TF_HTTP_USERNAME=${MASSDRIVER_DEPLOYMENT_ID}
 export TF_HTTP_PASSWORD=${MASSDRIVER_TOKEN}
-export TF_HTTP_ADDRESS="https://api.massdriver.cloud/state/${MASSDRIVER_INSTANCE_ID}/${MASSDRIVER_STEP_PATH}"
+export TF_HTTP_ADDRESS="${MASSDRIVER_URL}/state/${MASSDRIVER_INSTANCE_ID}/${MASSDRIVER_STEP_PATH}"
 export TF_HTTP_LOCK_ADDRESS=${TF_HTTP_ADDRESS}
 export TF_HTTP_UNLOCK_ADDRESS=${TF_HTTP_ADDRESS}
 
