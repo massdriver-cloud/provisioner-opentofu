@@ -7,14 +7,18 @@ ARG UID=10001
 FROM ${RUN_IMG} AS build
 ARG OPENTOFU_VERSION
 ARG CHECKOV_VERSION
+# set automatically by buildx to the platform being built (amd64, arm64)
+ARG TARGETARCH
 
 # install opentofu, yq, massdriver cli, kubectl
+# checkov names its amd64 release X86_64 rather than amd64
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl unzip make jq && \
     rm -rf /var/lib/apt/lists/* && \
-    curl -s https://api.github.com/repos/massdriver-cloud/xo/releases/latest | jq -r '.assets[] | select(.name | contains("linux-amd64")) | .browser_download_url' | xargs curl -sSL -o xo.tar.gz && tar -xvf xo.tar.gz -C /tmp && mv /tmp/xo /usr/local/bin/ && rm *.tar.gz && \
-    curl -sSL https://github.com/opentofu/opentofu/releases/download/v${OPENTOFU_VERSION}/tofu_${OPENTOFU_VERSION}_linux_amd64.zip > opentofu.zip && unzip opentofu.zip && mv tofu /usr/local/bin/ && rm *.zip && \
-    curl -sSL https://github.com/bridgecrewio/checkov/releases/download/${CHECKOV_VERSION}/checkov_linux_X86_64.zip > checkov.zip && unzip checkov.zip && mv dist/checkov /usr/local/bin/ && rm *.zip
+    curl -s https://api.github.com/repos/massdriver-cloud/xo/releases/latest | jq -r --arg arch "linux-${TARGETARCH}" '.assets[] | select(.name | contains($arch)) | .browser_download_url' | xargs curl -sSL -o xo.tar.gz && tar -xvf xo.tar.gz -C /tmp && mv /tmp/xo /usr/local/bin/ && rm *.tar.gz && \
+    curl -sSL https://github.com/opentofu/opentofu/releases/download/v${OPENTOFU_VERSION}/tofu_${OPENTOFU_VERSION}_linux_${TARGETARCH}.zip > opentofu.zip && unzip opentofu.zip && mv tofu /usr/local/bin/ && rm *.zip && \
+    CHECKOV_ARCH=$([ "$TARGETARCH" = "amd64" ] && echo X86_64 || echo "$TARGETARCH") && \
+    curl -sSL https://github.com/bridgecrewio/checkov/releases/download/${CHECKOV_VERSION}/checkov_linux_${CHECKOV_ARCH}.zip > checkov.zip && unzip checkov.zip && mv dist/checkov /usr/local/bin/ && rm *.zip
 
 FROM ${RUN_IMG}
 ARG USER
