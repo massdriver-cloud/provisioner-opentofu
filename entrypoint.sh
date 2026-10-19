@@ -169,20 +169,9 @@ tofu apply "${tf_flags[@]}" tf.plan
 case "$MASSDRIVER_DEPLOYMENT_ACTION" in
     provision )
         tofu show -json -show-sensitive  | jq '.values.outputs // {} | with_entries(.value = .value.value)' > outputs.json
-        jq -s '{params:.[0],connections:.[1],envs:.[2],secrets:.[3],outputs:.[4]}' "$params_path" "$connections_path" "$envs_path" "$secrets_path" outputs.json > resource_inputs.json
-        for resource_file in artifact_*.jq resource_*.jq; do
-            [ -f "$resource_file" ] || continue
-            field=$(echo "$resource_file" | sed -E 's/^(artifact|resource)_(.*)\.jq$/\2/')
-            echo -e "\nCreating resource \"$MASSDRIVER_INSTANCE_ID.$field\" in Massdriver..."
-            jq -f "$resource_file" resource_inputs.json | xo resource publish -d "$field" -n "Resource $field for $MASSDRIVER_INSTANCE_ID" -f -
-        done
+        xo resource provision -o outputs.json
         ;;
     decommission )
-        for resource_file in artifact_*.jq resource_*.jq; do
-            [ -f "$resource_file" ] || continue
-            field=$(echo "$resource_file" | sed -E 's/^(artifact|resource)_(.*)\.jq$/\2/')
-            echo -e "\nDeleting resource \"$MASSDRIVER_INSTANCE_ID.$field\" from Massdriver..."
-            xo resource delete -d "$field" || echo -e "${YELLOW}Warning: failed to delete resource for field $field. Continuing decommission.${NC}"
-        done
+        xo resource decommission
         ;;
 esac
